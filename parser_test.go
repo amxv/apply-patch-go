@@ -68,3 +68,26 @@ func TestParsePatchUpdateWithoutExplicitFirstContextMarker(t *testing.T) {
 		t.Fatalf("unexpected chunk: %+v", chunk)
 	}
 }
+
+
+func TestParsePatchRejectsBadFirstLine(t *testing.T) {
+	_, err := ParsePatch("bad")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	perr, ok := err.(*ParseError)
+	if !ok || perr.Kind != ParseErrorInvalidPatch || perr.Message != "The first line of the patch must be '*** Begin Patch'" {
+		t.Fatalf("unexpected parse error: %#v", err)
+	}
+}
+
+func TestParsePatchRejectsMissingEndMarker(t *testing.T) {
+	_, err := ParsePatch("*** Begin Patch\nbad")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	perr, ok := err.(*ParseError)
+	if !ok || perr.Kind != ParseErrorInvalidPatch || perr.Message != "The last line of the patch must be '*** End Patch'" {
+		t.Fatalf("unexpected parse error: %#v", err)
+	}
+}
