@@ -333,3 +333,143 @@ func TestCLIMovesFileToNewDirectorySummary(t *testing.T) {
 		t.Fatalf("unexpected file content: %q", string(data))
 	}
 }
+
+
+func TestCLIAppliesMultipleChunks(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "multi.txt")
+	if err := os.WriteFile(path, []byte("line1\nline2\nline3\nline4\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: multi.txt\n@@\n-line2\n+changed2\n@@\n-line4\n+changed4\n*** End Patch"
+	cmd := exec.Command(bin, patch)
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("multiple chunks command failed: %v\n%s", err, string(out))
+	}
+	if string(out) != "Success. Updated the following files:\nM multi.txt\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "line1\nchanged2\nline3\nchanged4\n" {
+		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
+
+func TestCLIMoveOverwritesExistingDestination(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	oldPath := filepath.Join(tmp, "old", "name.txt")
+	dstPath := filepath.Join(tmp, "renamed", "dir", "name.txt")
+	if err := os.MkdirAll(filepath.Dir(oldPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(oldPath, []byte("from\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dstPath, []byte("existing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: old/name.txt\n*** Move to: renamed/dir/name.txt\n@@\n-from\n+new\n*** End Patch"
+	cmd := exec.Command(bin, patch)
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("move overwrite command failed: %v\n%s", err, string(out))
+	}
+	if string(out) != "Success. Updated the following files:\nM renamed/dir/name.txt\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+	data, err := os.ReadFile(dstPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new\n" {
+		t.Fatalf("unexpected destination content: %q", string(data))
+	}
+}
+
+func TestCLIAddOverwritesExistingFile(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "duplicate.txt")
+	if err := os.WriteFile(path, []byte("old content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "*** Begin Patch\n*** Add File: duplicate.txt\n+new content\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("add overwrite command failed: %v\n%s", err, string(out))
+	}
+	if string(out) != "Success. Updated the following files:\nA duplicate.txt\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new content\n" {
+		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
+
+func TestCLIUpdateAppendsTrailingNewline(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "no_newline.txt")
+	if err := os.WriteFile(path, []byte("no newline at end"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "*** Begin Patch\n*** Update File: no_newline.txt\n@@\n-no newline at end\n+first line\n+second line\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("trailing newline command failed: %v\n%s", err, string(out))
+	}
+	if string(out) != "Success. Updated the following files:\nM no_newline.txt\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "first line\nsecond line\n" {
+		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
+
+func TestCLIFailureAfterPartialSuccessLeavesChanges(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	created := filepath.Join(tmp, "created.txt")
+	patch := "*** Begin Patch\n*** Add File: created.txt\n+hello\n*** Update File: missing.txt\n@@\n-old\n+new\n*** End Patch"
+	cmd := exec.Command(bin, patch)
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("unexpected exit error: %v", err)
+	}
+	if string(out) != "Failed to read file to update missing.txt: No such file or directory (os error 2)\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+	data, err := os.ReadFile(created)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "hello\n" {
+		t.Fatalf("unexpected created file content: %q", string(data))
+	}
+}
