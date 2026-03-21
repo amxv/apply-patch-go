@@ -254,3 +254,19 @@ func TestMaybeParseApplyPatchVerifiedShellInvalidPatchIsNotApplyPatch(t *testing
 		t.Fatalf("unexpected result: %+v", got)
 	}
 }
+
+func TestMaybeParseApplyPatchVerifiedLiteralPatchErrorFallsBack(t *testing.T) {
+	argv := []string{"apply_patch", "*** Begin Patch\n*** Nope File: foo\n*** End Patch"}
+	got := MaybeParseApplyPatchVerified(argv, t.TempDir())
+	if got.Kind != MaybeApplyPatchVerifiedNotApplyPatch {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchVerifiedShellLiteralPatchErrorFallsBack(t *testing.T) {
+	argv := []string{"bash", "-lc", "apply_patch <<'PATCH'\n*** Begin Patch\n*** Nope File: foo\n*** End Patch\nPATCH"}
+	got := MaybeParseApplyPatchVerified(argv, t.TempDir())
+	if got.Kind != MaybeApplyPatchVerifiedNotApplyPatch {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
