@@ -92,12 +92,13 @@ func extractApplyPatchFromScript(script string) (body string, workdir string, ok
 		workdir = trimShellWord(strings.TrimSpace(script[3:idx]))
 		script = strings.TrimSpace(script[idx+2:])
 	}
-	if !(strings.HasPrefix(script, "apply_patch") || strings.HasPrefix(script, "applypatch")) {
-		return "", "", false
-	}
 	idx := strings.Index(script, "<<")
 	if idx < 0 {
-		return "", "", false
+		return "", workdir, false
+	}
+	cmdPart := strings.TrimSpace(script[:idx])
+	if !(cmdPart == "apply_patch" || cmdPart == "applypatch") {
+		return "", workdir, false
 	}
 	rest := strings.TrimSpace(script[idx+2:])
 	lineEnd := strings.Index(rest, "\n")

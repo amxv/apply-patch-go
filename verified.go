@@ -29,9 +29,17 @@ func MaybeParseApplyPatchVerified(argv []string, cwd string) MaybeApplyPatchVeri
 	if parsed.Kind != MaybeApplyPatchBody || parsed.Args == nil {
 		return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedNotApplyPatch}
 	}
+	effectiveCwd := cwd
+	if parsed.Args.Workdir != nil {
+		if filepath.IsAbs(*parsed.Args.Workdir) {
+			effectiveCwd = *parsed.Args.Workdir
+		} else {
+			effectiveCwd = filepath.Join(cwd, *parsed.Args.Workdir)
+		}
+	}
 	changes := map[string]ApplyPatchFileChange{}
 	for _, hunk := range parsed.Args.Hunks {
-		path := hunk.ResolvePath(cwd)
+		path := hunk.ResolvePath(effectiveCwd)
 		switch hunk.Kind {
 		case HunkAddFile:
 			changes[path] = ApplyPatchFileChange{Kind: ApplyPatchFileChangeAdd, Content: hunk.Contents}
@@ -42,21 +50,17 @@ func MaybeParseApplyPatchVerified(argv []string, cwd string) MaybeApplyPatchVeri
 			}
 			changes[path] = ApplyPatchFileChange{Kind: ApplyPatchFileChangeDelete, Content: string(content)}
 		case HunkUpdateFile:
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedCorrectness, CorrectnessError: &ApplyPatchError{IOError: &IoError{Context: "Failed to read file to update " + path, Source: err}}}
-			}
-			newContent, err := deriveNewContent(string(content), path, hunk.Chunks)
+			diffUpdate, err := UnifiedDiffFromChunks(path, hunk.Chunks)
 			if err != nil {
 				return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedCorrectness, CorrectnessError: err}
 			}
 			var movePath *string
 			if hunk.MovePath != nil {
-				resolved := filepath.Join(cwd, *hunk.MovePath)
+				resolved := filepath.Join(effectiveCwd, *hunk.MovePath)
 				movePath = &resolved
 			}
-			changes[path] = ApplyPatchFileChange{Kind: ApplyPatchFileChangeUpdate, MovePath: movePath, NewContent: newContent}
+			changes[path] = ApplyPatchFileChange{Kind: ApplyPatchFileChangeUpdate, MovePath: movePath, UnifiedDiff: diffUpdate.UnifiedDiff, NewContent: diffUpdate.Content}
 		}
 	}
-	return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedBody, Action: &ApplyPatchAction{Changes: changes, Patch: parsed.Args.Patch, Cwd: cwd}}
+	return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedBody, Action: &ApplyPatchAction{Changes: changes, Patch: parsed.Args.Patch, Cwd: effectiveCwd}}
 }
