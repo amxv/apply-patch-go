@@ -191,3 +191,22 @@ func TestMaybeParseApplyPatchRejectsEchoThenCdThenApplyPatch(t *testing.T) {
 		t.Fatalf("expected not-apply-patch, got %+v", got)
 	}
 }
+
+
+func TestMaybeParseApplyPatchHeredocNonLoginShell(t *testing.T) {
+	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"bash", "-c", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchBody || got.Args == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchHeredocAlias(t *testing.T) {
+	script := "applypatch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"bash", "-lc", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchBody || got.Args == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
