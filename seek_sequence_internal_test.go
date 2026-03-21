@@ -20,3 +20,12 @@ func TestSeekSequenceAndNormalizeHelpers(t *testing.T) {
 		t.Fatalf("unexpected space normalization: %q", got)
 	}
 }
+
+func TestNormalizeMatchDoubleQuotesAndDash(t *testing.T) {
+	if got := normalizeMatch("“quoted”"); got != "\"quoted\"" {
+		t.Fatalf("unexpected double quote normalization: %q", got)
+	}
+	if got := normalizeMatch("x—y"); got != "x-y" {
+		t.Fatalf("unexpected dash normalization: %q", got)
+	}
+}

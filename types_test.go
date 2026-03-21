@@ -105,3 +105,11 @@ func TestPrintSummaryAllEntries(t *testing.T) {
 		t.Fatalf("unexpected summary: %q", out.String())
 	}
 }
+
+func TestPrintSummaryModifiedBranchError(t *testing.T) {
+	writer := &failAfterNWriter{remaining: 1}
+	err := PrintSummary(&AffectedPaths{Modified: []string{"m.txt"}}, writer)
+	if err == nil || err.Error() != "write failed" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

@@ -232,3 +232,14 @@ func TestUnifiedDiffUsesStderrWhenDiffExitsOne(t *testing.T) {
 		t.Fatalf("unexpected unified diff: %q", diff.UnifiedDiff)
 	}
 }
+
+func TestUnifiedDiffDeriveNewContentError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "derive-error.txt")
+	if err := os.WriteFile(path, []byte("foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := UnifiedDiffFromChunks(path, []UpdateFileChunk{{OldLines: []string{"missing"}, NewLines: []string{"bar"}}})
+	if err == nil || !strings.Contains(err.Error(), "Failed to find expected lines in "+path) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

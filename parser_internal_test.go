@@ -51,3 +51,9 @@ func TestParseOneHunkAndChunkInternalBranches(t *testing.T) {
 		t.Fatal("expected eof-only error")
 	}
 }
+
+func TestParseOneHunkUpdateEmptyDirect(t *testing.T) {
+	if _, _, err := parseOneHunk([]string{"*** Update File: foo.txt"}, 2); err == nil {
+		t.Fatal("expected empty update hunk error")
+	}
+}

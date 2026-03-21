@@ -222,3 +222,18 @@ func TestNewAddForTestPanicsOnRelativePath(t *testing.T) {
 	}()
 	_ = NewAddForTest("relative.txt", "hello")
 }
+
+func TestMaybeParseApplyPatchVerifiedInvalidPatchIsNotApplyPatch(t *testing.T) {
+	got := MaybeParseApplyPatchVerified([]string{"*** Begin Patch\n*** Nope File: foo\n*** End Patch"}, t.TempDir())
+	if got.Kind != MaybeApplyPatchVerifiedNotApplyPatch {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchVerifiedShellInvalidPatchIsNotApplyPatch(t *testing.T) {
+	argv := []string{"bash", "-lc", "apply_patch <<'PATCH'\n*** Begin Patch\n*** Nope File: foo\n*** End Patch\nPATCH"}
+	got := MaybeParseApplyPatchVerified(argv, t.TempDir())
+	if got.Kind != MaybeApplyPatchVerifiedNotApplyPatch {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
