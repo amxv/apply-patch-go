@@ -172,3 +172,127 @@ func TestToolFailureAfterPartialSuccessLeavesChanges(t *testing.T) {
 		t.Fatalf("unexpected created file: %q", string(data))
 	}
 }
+
+
+func TestToolRejectsEmptyUpdateHunkMessage(t *testing.T) {
+	dir := t.TempDir()
+	_, stderr, err := runApplyPatchInDir(t, dir, "*** Begin Patch\n*** Update File: foo.txt\n*** End Patch")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if stderr != "Invalid patch hunk on line 2: Update file hunk for path 'foo.txt' is empty\n" {
+		t.Fatalf("unexpected stderr: %q", stderr)
+	}
+}
+
+func TestToolMovesFileToNewDirectorySummary(t *testing.T) {
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "old", "name.txt")
+	newPath := filepath.Join(dir, "renamed", "dir", "name.txt")
+	if err := os.MkdirAll(filepath.Dir(oldPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(oldPath, []byte("old content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, err := runApplyPatchInDir(t, dir, "*** Begin Patch\n*** Update File: old/name.txt\n*** Move to: renamed/dir/name.txt\n@@\n-old content\n+new content\n*** End Patch")
+	if err != nil {
+		t.Fatalf("unexpected error: %v stderr=%q", err, stderr)
+	}
+	if stdout != "Success. Updated the following files:\nM renamed/dir/name.txt\n" {
+		t.Fatalf("unexpected stdout: %q", stdout)
+	}
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Fatalf("expected old path removed, stat err=%v", err)
+	}
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new content\n" {
+		t.Fatalf("unexpected moved file content: %q", string(data))
+	}
+}
+
+func TestToolMoveOverwritesExistingDestination(t *testing.T) {
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "old", "name.txt")
+	dstPath := filepath.Join(dir, "renamed", "dir", "name.txt")
+	if err := os.MkdirAll(filepath.Dir(oldPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(oldPath, []byte("from\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dstPath, []byte("existing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, err := runApplyPatchInDir(t, dir, "*** Begin Patch\n*** Update File: old/name.txt\n*** Move to: renamed/dir/name.txt\n@@\n-from\n+new\n*** End Patch")
+	if err != nil {
+		t.Fatalf("unexpected error: %v stderr=%q", err, stderr)
+	}
+	if stdout != "Success. Updated the following files:\nM renamed/dir/name.txt\n" {
+		t.Fatalf("unexpected stdout: %q", stdout)
+	}
+	data, err := os.ReadFile(dstPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new\n" {
+		t.Fatalf("unexpected destination content: %q", string(data))
+	}
+}
+
+func TestToolAddOverwritesExistingFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "duplicate.txt")
+	if err := os.WriteFile(path, []byte("old content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, err := runApplyPatchInDir(t, dir, "*** Begin Patch\n*** Add File: duplicate.txt\n+new content\n*** End Patch")
+	if err != nil {
+		t.Fatalf("unexpected error: %v stderr=%q", err, stderr)
+	}
+	if stdout != "Success. Updated the following files:\nA duplicate.txt\n" {
+		t.Fatalf("unexpected stdout: %q", stdout)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new content\n" {
+		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
+
+func TestToolDeleteFileSuccessSummary(t *testing.T) {
+	dir := t.TempDir()
+	obsolete := filepath.Join(dir, "obsolete.txt")
+	keep := filepath.Join(dir, "keep.txt")
+	if err := os.WriteFile(obsolete, []byte("gone\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keep, []byte("stay\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, err := runApplyPatchInDir(t, dir, "*** Begin Patch\n*** Delete File: obsolete.txt\n*** End Patch")
+	if err != nil {
+		t.Fatalf("unexpected error: %v stderr=%q", err, stderr)
+	}
+	if stdout != "Success. Updated the following files:\nD obsolete.txt\n" {
+		t.Fatalf("unexpected stdout: %q", stdout)
+	}
+	if _, err := os.Stat(obsolete); !os.IsNotExist(err) {
+		t.Fatalf("expected obsolete removed, stat err=%v", err)
+	}
+	data, err := os.ReadFile(keep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "stay\n" {
+		t.Fatalf("unexpected keep file: %q", string(data))
+	}
+}
