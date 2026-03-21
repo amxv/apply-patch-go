@@ -51,3 +51,24 @@ func TestApplyPatchUpdateWithUnicodeDash(t *testing.T) {
 		t.Fatalf("unexpected file content: %q", string(got))
 	}
 }
+
+
+func TestApplyHunksWritesSummary(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.txt")
+	patch := "*** Begin Patch\n*** Add File: " + path + "\n+hello\n*** End Patch"
+	parsed, err := ParsePatch(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if err := ApplyHunks(parsed.Hunks, &stdout, &stderr); err != nil {
+		t.Fatalf("ApplyHunks returned error: %v stderr=%q", err, stderr.String())
+	}
+	if stdout.String() != "Success. Updated the following files:\nA "+path+"\n" {
+		t.Fatalf("unexpected stdout: %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}

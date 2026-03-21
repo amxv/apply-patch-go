@@ -3,6 +3,7 @@ package applypatch
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -53,5 +54,26 @@ func TestUnifiedDiffInsertAtEOF(t *testing.T) {
 	}
 	if diff.Content != "foo\nbar\nbaz\nquux\n" {
 		t.Fatalf("unexpected content: %q", diff.Content)
+	}
+}
+
+
+func TestUnifiedDiffWithCustomContext(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ctx.txt")
+	if err := os.WriteFile(path, []byte("one\ntwo\nthree\nfour\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: " + path + "\n@@\n-two\n+TWO\n*** End Patch"
+	parsed, err := ParsePatch(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diff, err := UnifiedDiffFromChunksWithContext(path, parsed.Hunks[0].Chunks, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff.UnifiedDiff == "" || !strings.Contains(diff.UnifiedDiff, "@@") {
+		t.Fatalf("unexpected unified diff: %q", diff.UnifiedDiff)
 	}
 }

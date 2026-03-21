@@ -18,7 +18,7 @@ func TestMaybeParseApplyPatchVerifiedDeleteReadsContent(t *testing.T) {
 	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
 		t.Fatalf("unexpected result: %+v", got)
 	}
-	change, ok := got.Action.Changes[path]
+	change, ok := got.Action.Changes()[path]
 	if !ok {
 		t.Fatalf("missing change for %s", path)
 	}
@@ -38,7 +38,7 @@ func TestMaybeParseApplyPatchVerifiedUpdateComputesNewContent(t *testing.T) {
 	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
 		t.Fatalf("unexpected result: %+v", got)
 	}
-	change, ok := got.Action.Changes[path]
+	change, ok := got.Action.Changes()[path]
 	if !ok {
 		t.Fatalf("missing change for %s", path)
 	}
@@ -75,7 +75,7 @@ func TestMaybeParseApplyPatchVerifiedResolvesMovePath(t *testing.T) {
 	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
 		t.Fatalf("unexpected result: %+v", got)
 	}
-	change, ok := got.Action.Changes[src]
+	change, ok := got.Action.Changes()[src]
 	if !ok {
 		t.Fatalf("missing change for %s", src)
 	}
@@ -96,7 +96,7 @@ func TestMaybeParseApplyPatchVerifiedUpdateIncludesUnifiedDiff(t *testing.T) {
 	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
 		t.Fatalf("unexpected result: %+v", got)
 	}
-	change, ok := got.Action.Changes[path]
+	change, ok := got.Action.Changes()[path]
 	if !ok {
 		t.Fatalf("missing change for %s", path)
 	}
@@ -120,7 +120,7 @@ func TestMaybeParseApplyPatchVerifiedResolvesRelativePathsInCwd(t *testing.T) {
 	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
 		t.Fatalf("unexpected result: %+v", got)
 	}
-	change, ok := got.Action.Changes[path]
+	change, ok := got.Action.Changes()[path]
 	if !ok {
 		t.Fatalf("missing change for %s", path)
 	}
@@ -154,5 +154,28 @@ func TestMaybeParseApplyPatchVerifiedPropagatesShellParseError(t *testing.T) {
 	}
 	if *got.ShellParseError != ExtractHeredocFailedToFindHeredocBody {
 		t.Fatalf("unexpected shell parse error: %+v", got.ShellParseError)
+	}
+}
+
+
+func TestApplyPatchActionChangesAccessorAndNewAddForTest(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sample.txt")
+	action := NewAddForTest(path, "hello")
+	if action == nil {
+		t.Fatal("expected action")
+	}
+	if action.Cwd != dir {
+		t.Fatalf("unexpected cwd: %q", action.Cwd)
+	}
+	if action.IsEmpty() {
+		t.Fatal("expected non-empty action")
+	}
+	change, ok := action.Changes()[path]
+	if !ok {
+		t.Fatalf("missing change for %s", path)
+	}
+	if change.Kind != ApplyPatchFileChangeAdd || change.Content != "hello" {
+		t.Fatalf("unexpected change: %+v", change)
 	}
 }

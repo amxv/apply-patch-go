@@ -72,5 +72,5 @@ func MaybeParseApplyPatchVerified(argv []string, cwd string) MaybeApplyPatchVeri
 			changes[path] = ApplyPatchFileChange{Kind: ApplyPatchFileChangeUpdate, MovePath: movePath, UnifiedDiff: diffUpdate.UnifiedDiff, NewContent: diffUpdate.Content}
 		}
 	}
-	return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedBody, Action: &ApplyPatchAction{Changes: changes, Patch: parsed.Args.Patch, Cwd: effectiveCwd}}
+	return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedBody, Action: &ApplyPatchAction{changes: changes, Patch: parsed.Args.Patch, Cwd: effectiveCwd}}
 }

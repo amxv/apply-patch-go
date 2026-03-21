@@ -124,13 +124,33 @@ type ApplyPatchFileChange struct {
 }
 
 type ApplyPatchAction struct {
-	Changes map[string]ApplyPatchFileChange
+	changes map[string]ApplyPatchFileChange
 	Patch   string
 	Cwd     string
 }
 
 func (a *ApplyPatchAction) IsEmpty() bool {
-	return a == nil || len(a.Changes) == 0
+	return a == nil || len(a.changes) == 0
+}
+
+func (a *ApplyPatchAction) Changes() map[string]ApplyPatchFileChange {
+	if a == nil {
+		return nil
+	}
+	return a.changes
+}
+
+func NewAddForTest(path string, content string) *ApplyPatchAction {
+	if !filepath.IsAbs(path) {
+		panic("path must be absolute")
+	}
+	filename := filepath.Base(path)
+	patch := "*** Begin Patch\n*** Update File: " + filename + "\n@@\n+ " + content + "\n*** End Patch"
+	return &ApplyPatchAction{
+		changes: map[string]ApplyPatchFileChange{path: {Kind: ApplyPatchFileChangeAdd, Content: content}},
+		Cwd:     filepath.Dir(path),
+		Patch:   patch,
+	}
 }
 
 type AffectedPaths struct {

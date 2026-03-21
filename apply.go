@@ -20,7 +20,11 @@ func ApplyPatch(patch string, stdout io.Writer, stderr io.Writer) error {
 		}
 		return &ApplyPatchError{ParseError: perr}
 	}
-	affected, err := applyHunks(args.Hunks)
+	return ApplyHunks(args.Hunks, stdout, stderr)
+}
+
+func ApplyHunks(hunks []Hunk, stdout io.Writer, stderr io.Writer) error {
+	affected, err := applyHunksToFiles(hunks)
 	if err != nil {
 		_, _ = io.WriteString(stderr, err.Error()+"\n")
 		return err
@@ -28,7 +32,7 @@ func ApplyPatch(patch string, stdout io.Writer, stderr io.Writer) error {
 	return PrintSummary(affected, stdout)
 }
 
-func applyHunks(hunks []Hunk) (*AffectedPaths, error) {
+func applyHunksToFiles(hunks []Hunk) (*AffectedPaths, error) {
 	if len(hunks) == 0 {
 		return nil, &ApplyPatchError{IOError: &IoError{Context: "No files were modified.", Source: nil}}
 	}

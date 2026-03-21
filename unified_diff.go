@@ -4,10 +4,15 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
 func UnifiedDiffFromChunks(path string, chunks []UpdateFileChunk) (*ApplyPatchFileUpdate, error) {
+	return UnifiedDiffFromChunksWithContext(path, chunks, 1)
+}
+
+func UnifiedDiffFromChunksWithContext(path string, chunks []UpdateFileChunk, context int) (*ApplyPatchFileUpdate, error) {
 	original, err := os.ReadFile(path)
 	if err != nil {
 		return nil, &ApplyPatchError{IOError: &IoError{Context: "Failed to read file to update " + path, Source: err}}
@@ -29,7 +34,7 @@ func UnifiedDiffFromChunks(path string, chunks []UpdateFileChunk) (*ApplyPatchFi
 	if err := os.WriteFile(newPath, []byte(newContent), 0o600); err != nil {
 		return nil, &ApplyPatchError{IOError: &IoError{Context: "Failed to write temp new file", Source: err}}
 	}
-	cmd := exec.Command("diff", "-U1", oldPath, newPath)
+	cmd := exec.Command("diff", "-U"+strconv.Itoa(context), oldPath, newPath)
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
