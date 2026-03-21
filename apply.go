@@ -70,8 +70,15 @@ func applyAddFile(hunk Hunk) error {
 }
 
 func applyDeleteFile(hunk Hunk) error {
+	info, err := os.Stat(hunk.Path)
+	if err != nil {
+		return &ApplyPatchError{Message: "Failed to delete file " + hunk.Path}
+	}
+	if info.IsDir() {
+		return &ApplyPatchError{Message: "Failed to delete file " + hunk.Path}
+	}
 	if err := os.Remove(hunk.Path); err != nil {
-		return &ApplyPatchError{IOError: &IoError{Context: "Failed to delete file " + hunk.Path, Source: err}}
+		return &ApplyPatchError{Message: "Failed to delete file " + hunk.Path}
 	}
 	return nil
 }
@@ -79,6 +86,9 @@ func applyDeleteFile(hunk Hunk) error {
 func applyUpdateFile(hunk Hunk) error {
 	content, err := os.ReadFile(hunk.Path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return &ApplyPatchError{Message: "Failed to read file to update " + hunk.Path + ": No such file or directory (os error 2)"}
+		}
 		return &ApplyPatchError{IOError: &IoError{Context: "Failed to read file to update " + hunk.Path, Source: err}}
 	}
 	newContent, err := deriveNewContent(string(content), hunk.Path, hunk.Chunks)
