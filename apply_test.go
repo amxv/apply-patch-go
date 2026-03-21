@@ -326,3 +326,28 @@ func TestApplyPatchMoveWriteDestinationDirectoryError(t *testing.T) {
 		t.Fatalf("unexpected stderr: %q", stderr.String())
 	}
 }
+
+func TestApplyPatchMoveEnsureParentDirError(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.txt")
+	blocked := filepath.Join(dir, "blocked")
+	dst := filepath.Join(blocked, "child.txt")
+	if err := os.WriteFile(src, []byte("from\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(blocked, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: " + src + "\n*** Move to: " + dst + "\n@@\n-from\n+to\n*** End Patch"
+	var stdout, stderr bytes.Buffer
+	err := ApplyPatch(patch, &stdout, &stderr)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if stdout.String() != "" {
+		t.Fatalf("unexpected stdout: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Failed to create parent directories for "+dst) {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}

@@ -57,3 +57,10 @@ func TestParseOneHunkUpdateEmptyDirect(t *testing.T) {
 		t.Fatal("expected empty update hunk error")
 	}
 }
+
+func TestParseOneHunkAddFileWithoutContents(t *testing.T) {
+	hunk, consumed, err := parseOneHunk([]string{"*** Add File: empty.txt", "*** End Patch"}, 2)
+	if err != nil || consumed != 1 || hunk.Kind != HunkAddFile || hunk.Path != "empty.txt" || hunk.Contents != "" {
+		t.Fatalf("unexpected add hunk: %+v consumed=%d err=%v", hunk, consumed, err)
+	}
+}

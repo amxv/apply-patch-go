@@ -47,6 +47,23 @@ func TestMaybeParseApplyPatchVerifiedUpdateComputesNewContent(t *testing.T) {
 	}
 }
 
+func TestMaybeParseApplyPatchVerifiedAddFileBody(t *testing.T) {
+	dir := t.TempDir()
+	argv := []string{"apply_patch", "*** Begin Patch\n*** Add File: new.txt\n+hello\n*** End Patch"}
+	got := MaybeParseApplyPatchVerified(argv, dir)
+	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	path := filepath.Join(dir, "new.txt")
+	change, ok := got.Action.Changes()[path]
+	if !ok {
+		t.Fatalf("missing change for %s", path)
+	}
+	if change.Kind != ApplyPatchFileChangeAdd || change.Content != "hello\n" {
+		t.Fatalf("unexpected change: %+v", change)
+	}
+}
+
 func TestMaybeParseApplyPatchVerifiedImplicitInvocation(t *testing.T) {
 	dir := t.TempDir()
 	argv := []string{"*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch"}
