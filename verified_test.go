@@ -131,3 +131,17 @@ func TestMaybeParseApplyPatchVerifiedResolvesRelativePathsInCwd(t *testing.T) {
 		t.Fatalf("unexpected change: %+v", change)
 	}
 }
+
+
+func TestMaybeParseApplyPatchVerifiedImplicitPatchBashScriptIsError(t *testing.T) {
+	dir := t.TempDir()
+	argv := []string{"bash", "-lc", "*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch"}
+	got := MaybeParseApplyPatchVerified(argv, dir)
+	if got.Kind != MaybeApplyPatchVerifiedCorrectness || got.CorrectnessError == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	err, ok := got.CorrectnessError.(*ApplyPatchError)
+	if !ok || !err.ImplicitInvocation {
+		t.Fatalf("unexpected correctness error: %#v", got.CorrectnessError)
+	}
+}

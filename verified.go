@@ -25,6 +25,11 @@ func MaybeParseApplyPatchVerified(argv []string, cwd string) MaybeApplyPatchVeri
 			return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedCorrectness, CorrectnessError: &ApplyPatchError{ImplicitInvocation: true}}
 		}
 	}
+	if script, ok := parseShellScript(argv); ok {
+		if _, err := ParsePatch(script); err == nil {
+			return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedCorrectness, CorrectnessError: &ApplyPatchError{ImplicitInvocation: true}}
+		}
+	}
 	parsed := MaybeParseApplyPatch(argv)
 	if parsed.Kind != MaybeApplyPatchBody || parsed.Args == nil {
 		return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedNotApplyPatch}

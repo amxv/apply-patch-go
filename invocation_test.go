@@ -128,3 +128,34 @@ func TestMaybeParseApplyPatchRejectsDoubleCd(t *testing.T) {
 		t.Fatalf("expected not-apply-patch, got %+v", got)
 	}
 }
+
+
+func TestMaybeParseApplyPatchPowerShellHeredoc(t *testing.T) {
+	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"powershell", "-Command", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchBody || got.Args == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchPwshHeredoc(t *testing.T) {
+	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"pwsh", "-Command", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchBody || got.Args == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchCmdHeredocWithCd(t *testing.T) {
+	script := "cd foo && apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"cmd.exe", "/c", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchBody || got.Args == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	if got.Args.Workdir == nil || *got.Args.Workdir != "foo" {
+		t.Fatalf("unexpected workdir: %+v", got.Args.Workdir)
+	}
+}
