@@ -64,6 +64,22 @@ func TestMaybeParseApplyPatchVerifiedAddFileBody(t *testing.T) {
 	}
 }
 
+func TestMaybeParseApplyPatchVerifiedUpdateCorrectnessErrorOnDiffFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "u.txt")
+	if err := os.WriteFile(path, []byte("foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	argv := []string{"apply_patch", "*** Begin Patch\n*** Update File: u.txt\n@@\n-missing\n+bar\n*** End Patch"}
+	got := MaybeParseApplyPatchVerified(argv, dir)
+	if got.Kind != MaybeApplyPatchVerifiedCorrectness || got.CorrectnessError == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	if !strings.Contains(got.CorrectnessError.Error(), "Failed to find expected lines in "+path) {
+		t.Fatalf("unexpected correctness error: %v", got.CorrectnessError)
+	}
+}
+
 func TestMaybeParseApplyPatchVerifiedImplicitInvocation(t *testing.T) {
 	dir := t.TempDir()
 	argv := []string{"*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch"}

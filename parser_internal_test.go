@@ -70,3 +70,9 @@ func TestParseOneHunkUpdateEmptyAfterBlankLine(t *testing.T) {
 		t.Fatal("expected empty update hunk error")
 	}
 }
+
+func TestParseOneHunkUpdateChunkErrorPropagates(t *testing.T) {
+	if _, _, err := parseOneHunk([]string{"*** Update File: foo.txt", "@@", "*** End of File", "*** End Patch"}, 2); err == nil {
+		t.Fatal("expected chunk parse error")
+	}
+}

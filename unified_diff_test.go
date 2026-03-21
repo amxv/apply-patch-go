@@ -1,6 +1,7 @@
 package applypatch
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -240,6 +241,44 @@ func TestUnifiedDiffDeriveNewContentError(t *testing.T) {
 	}
 	_, err := UnifiedDiffFromChunks(path, []UpdateFileChunk{{OldLines: []string{"missing"}, NewLines: []string{"bar"}}})
 	if err == nil || !strings.Contains(err.Error(), "Failed to find expected lines in "+path) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUnifiedDiffFailsWritingTempOldFile(t *testing.T) {
+	origWriteFile := writeFile
+	defer func() { writeFile = origWriteFile }()
+	writeFile = func(name string, data []byte, perm os.FileMode) error {
+		if filepath.Base(name) == "old" {
+			return errors.New("old write failed")
+		}
+		return os.WriteFile(name, data, perm)
+	}
+	path := filepath.Join(t.TempDir(), "temp-old.txt")
+	if err := os.WriteFile(path, []byte("foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := UnifiedDiffFromChunks(path, []UpdateFileChunk{{OldLines: []string{"foo"}, NewLines: []string{"bar"}}})
+	if err == nil || !strings.Contains(err.Error(), "Failed to write temp old file") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUnifiedDiffFailsWritingTempNewFile(t *testing.T) {
+	origWriteFile := writeFile
+	defer func() { writeFile = origWriteFile }()
+	writeFile = func(name string, data []byte, perm os.FileMode) error {
+		if filepath.Base(name) == "new" {
+			return errors.New("new write failed")
+		}
+		return os.WriteFile(name, data, perm)
+	}
+	path := filepath.Join(t.TempDir(), "temp-new.txt")
+	if err := os.WriteFile(path, []byte("foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := UnifiedDiffFromChunks(path, []UpdateFileChunk{{OldLines: []string{"foo"}, NewLines: []string{"bar"}}})
+	if err == nil || !strings.Contains(err.Error(), "Failed to write temp new file") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+var mkdirTemp = os.MkdirTemp
+var writeFile = os.WriteFile
+var execCommand = exec.Command
+
 func UnifiedDiffFromChunks(path string, chunks []UpdateFileChunk) (*ApplyPatchFileUpdate, error) {
 	return UnifiedDiffFromChunksWithContext(path, chunks, 1)
 }
@@ -21,20 +25,20 @@ func UnifiedDiffFromChunksWithContext(path string, chunks []UpdateFileChunk, con
 	if err != nil {
 		return nil, err
 	}
-	dir, err := os.MkdirTemp("", "apply-patch-go-diff-")
+	dir, err := mkdirTemp("", "apply-patch-go-diff-")
 	if err != nil {
 		return nil, &ApplyPatchError{IOError: &IoError{Context: "Failed to create temp directory", Source: err}}
 	}
 	defer os.RemoveAll(dir)
 	oldPath := dir + "/old"
 	newPath := dir + "/new"
-	if err := os.WriteFile(oldPath, original, 0o600); err != nil {
+	if err := writeFile(oldPath, original, 0o600); err != nil {
 		return nil, &ApplyPatchError{IOError: &IoError{Context: "Failed to write temp old file", Source: err}}
 	}
-	if err := os.WriteFile(newPath, []byte(newContent), 0o600); err != nil {
+	if err := writeFile(newPath, []byte(newContent), 0o600); err != nil {
 		return nil, &ApplyPatchError{IOError: &IoError{Context: "Failed to write temp new file", Source: err}}
 	}
-	cmd := exec.Command("diff", "-U"+strconv.Itoa(context), oldPath, newPath)
+	cmd := execCommand("diff", "-U"+strconv.Itoa(context), oldPath, newPath)
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {

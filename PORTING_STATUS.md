@@ -43,7 +43,7 @@ The Go port now contains working implementations for:
 
 ### 2. Upstream scenario fixture runner
 
-The repository now runs the upstream filesystem scenario corpus directly from:
+The repository runs the upstream filesystem scenario corpus directly from:
 
 - `codex-upstream/codex-rs/apply-patch/tests/fixtures/scenarios`
 
@@ -69,9 +69,9 @@ The Go suite now mirrors a broad slice of the upstream `tool.rs` behavior, inclu
 
 ### 4. Real CLI binary coverage
 
-The test suite also exercises the real built binary from `cmd/apply_patch`, not just in-process library helpers.
+The test suite exercises the real built binary from `cmd/apply_patch`, not just in-process library helpers.
 
-That coverage now includes:
+That coverage includes:
 
 - argv invocation
 - stdin invocation
@@ -96,13 +96,15 @@ The Go port now includes broad coverage for upstream invocation behavior, includ
 
 ### 6. Unified diff parity work
 
-The Go suite now includes exact unified diff shape checks for key upstream cases, including:
+The Go suite includes exact unified diff shape checks for key upstream cases, including:
 
 - first-line replacement
 - last-line replacement
 - insert-at-EOF
 - interleaved changes
 - custom context radius behavior
+- diff execution failure paths
+- temp-directory creation failure paths
 
 ### 7. Public API / helper parity work
 
@@ -115,45 +117,112 @@ The Go package now exposes more of the upstream crate’s public helper surface,
 - `ApplyPatchAction.Changes()`
 - `NewAddForTest`
 
-## Current status
+## Major blocker that has already been fixed
 
-The port is much closer to the upstream crate than it was at the start.
-
-Large parts of the upstream behavior matrix are already covered and passing.
-
-However, the port is **not finished yet**.
-
-The remaining work is now down to smaller but important correctness gaps in core engine behavior and edge-case semantics.
-
-## Current concrete blocker
-
-The current known blocker is a real engine bug found by a newer direct library-style test based on the upstream Rust crate.
-
-That failing case exercises a patch containing:
+A previous direct library-style upstream test exposed a real engine bug in the Go patch engine for a patch made of:
 
 - a pure-addition update chunk
-- followed by a later removal chunk
+- followed by a later removal/replacement chunk
 
-That case currently exposes a replacement-ordering bug in the Go patch engine in `apply.go`.
+That replacement-ordering bug in `apply.go` has now been fixed.
 
-So the repository is in the following state:
+This is important because the repo is no longer in the earlier “broadly green but still known-core-engine-buggy” state. That blocker was real, was reproduced, and is now fixed.
 
-- broad parity work completed
-- large portions of upstream behavior already green
-- still not complete until the remaining core engine edge cases are fixed and revalidated
+## Verified clean checkpoints on the VPS
 
-## Working approach going forward
+Progress has been preserved incrementally in local commits on the VPS. Important verified checkpoints include:
 
-The porting strategy remains:
+- `28401b6` — direct parity tests and broad coverage expansion
+- `31a2ec1` — targeted helper branch coverage tests
+- `f8ca1cb` — move-parent and verified add-file branch coverage
+- `00955ff` — parser and verified fallback branch coverage
 
-1. compare directly against the upstream Rust crate
-2. port missing tests or behavior slices from upstream
-3. fix the Go implementation until those cases pass
-4. keep the repo green with focused verification after each change
-5. continue until the Go port behaves like the Rust crate across parser, engine, CLI, verified invocation, and helper APIs
+## Latest fully verified status
+
+The repository has now moved beyond commit `00955ff`.
+
+On the current working tree on the VPS, the following have been re-verified successfully:
+
+- `go test ./...`
+- `go test ./... -coverprofile=cover.out`
+
+The current verified totals are now:
+
+- root package coverage: **100.0%**
+- `cmd/apply_patch` coverage: **100.0%**
+- total statement coverage in `cover.out`: **100.0%**
+
+This means the previous remaining uncovered function has now been fully covered as well:
+
+- `UnifiedDiffFromChunksWithContext` in `unified_diff.go`: **100.0%**
+
+Function-by-function coverage output for the current working tree now shows every covered function at **100.0%**, including:
+
+- `apply.go`
+- `types.go`
+- `invocation.go`
+- `parser.go`
+- `seek_sequence.go`
+- `verified.go`
+- `unified_diff.go`
+- CLI wrapper code
+
+## What changed beyond `00955ff`
+
+The final delta beyond `00955ff` is small and focused.
+
+### 1. Final unified-diff test seam
+
+`unified_diff.go` now exposes three internal-only function variables:
+
+- `mkdirTemp`
+- `writeFile`
+- `execCommand`
+
+These are test seams only. They preserve runtime behavior while allowing deterministic coverage of temp-directory, temp-file, and diff-execution failure paths.
+
+### 2. Final unified-diff failure-path coverage
+
+`unified_diff_test.go` now includes the final two deterministic temp-file write failure tests:
+
+- `TestUnifiedDiffFailsWritingTempOldFile`
+- `TestUnifiedDiffFailsWritingTempNewFile`
+
+Those tests are green and are what closed the remaining uncovered branches in `UnifiedDiffFromChunksWithContext`.
+
+### 3. Small additional branch coverage improvements
+
+Two other small targeted tests were also added:
+
+- `TestParseOneHunkUpdateChunkErrorPropagates` in `parser_internal_test.go`
+- `TestMaybeParseApplyPatchVerifiedUpdateCorrectnessErrorOnDiffFailure` in `verified_test.go`
+
+## Practical meaning of the current status
+
+The port is no longer merely “close” to full parity coverage.
+
+The current working tree is now:
+
+- full-suite green
+- **100.0%** statement-covered
+- fully covered in `unified_diff.go`
+- still backed by the upstream scenario corpus
+- still aligned to the exact-behavior porting goal rather than a loose approximation
+
+The major known engine blocker from earlier work remains fixed, and the final coverage blocker has now also been eliminated.
+
+## Exact next steps
+
+The remaining work is no longer about branch coverage.
+
+The immediate next actions are now:
+
+1. commit the current verified working tree locally
+2. continue deeper parity validation against additional upstream Rust tests where direct reuse is practical
+3. keep comparing observable CLI/library behavior against the upstream crate for any remaining edge-case mismatches
 
 ## Bottom line
 
 This is an exact-behavior porting effort, not a loose reimplementation.
 
-The Go port has already made substantial progress toward one-to-one parity with the Codex upstream `apply-patch` crate, and the remaining work is now focused on closing the last correctness gaps rather than building missing major subsystems.
+The Go port has now reached a verified state where the live VPS working tree is green under `go test ./...` and measures **100.0%** statement coverage, including the final previously uncovered unified-diff error branches.
