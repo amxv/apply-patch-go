@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -182,6 +183,9 @@ func computeReplacements(originalLines []string, path string, chunks []UpdateFil
 		repls = append(repls, replacement{Start: *found, OldLen: len(pattern), NewLines: newSlice})
 		lineIndex = *found + len(pattern)
 	}
+	sort.SliceStable(repls, func(i, j int) bool {
+		return repls[i].Start < repls[j].Start
+	})
 	return repls, nil
 }
 

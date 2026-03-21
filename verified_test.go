@@ -157,6 +157,40 @@ func TestMaybeParseApplyPatchVerifiedPropagatesShellParseError(t *testing.T) {
 	}
 }
 
+func TestMaybeParseApplyPatchVerifiedNotApplyPatch(t *testing.T) {
+	got := MaybeParseApplyPatchVerified([]string{"echo", "hello"}, t.TempDir())
+	if got.Kind != MaybeApplyPatchVerifiedNotApplyPatch {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchVerifiedDeleteReadError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing.txt")
+	argv := []string{"apply_patch", "*** Begin Patch\n*** Delete File: " + path + "\n*** End Patch"}
+	got := MaybeParseApplyPatchVerified(argv, "/")
+	if got.Kind != MaybeApplyPatchVerifiedCorrectness || got.CorrectnessError == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	if !strings.Contains(got.CorrectnessError.Error(), "Failed to read "+path) {
+		t.Fatalf("unexpected correctness error: %v", got.CorrectnessError)
+	}
+}
+
+func TestMaybeParseApplyPatchVerifiedAbsoluteWorkdir(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "source.txt")
+	if err := os.WriteFile(path, []byte("before\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	argv := []string{"bash", "-lc", "cd '" + dir + "' && apply_patch <<'PATCH'\n*** Begin Patch\n*** Update File: source.txt\n@@\n-before\n+after\n*** End Patch\nPATCH"}
+	got := MaybeParseApplyPatchVerified(argv, t.TempDir())
+	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	if got.Action.Cwd != dir {
+		t.Fatalf("unexpected cwd: %q", got.Action.Cwd)
+	}
+}
 
 func TestApplyPatchActionChangesAccessorAndNewAddForTest(t *testing.T) {
 	dir := t.TempDir()
@@ -179,7 +213,6 @@ func TestApplyPatchActionChangesAccessorAndNewAddForTest(t *testing.T) {
 		t.Fatalf("unexpected change: %+v", change)
 	}
 }
-
 
 func TestNewAddForTestPanicsOnRelativePath(t *testing.T) {
 	defer func() {

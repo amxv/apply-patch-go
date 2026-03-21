@@ -45,6 +45,14 @@ func TestMaybeParseApplyPatchAlias(t *testing.T) {
 	}
 }
 
+func TestMaybeParseApplyPatchLiteralPatchError(t *testing.T) {
+	argv := []string{"apply_patch", "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch"}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchPatchError || got.PatchError == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
 func TestMaybeParseApplyPatchPowerShellNoProfile(t *testing.T) {
 	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
 	argv := []string{"powershell.exe", "-NoProfile", "-Command", script}
@@ -171,6 +179,22 @@ func TestMaybeParseApplyPatchShellParseErrorWhenHeredocBodyMissing(t *testing.T)
 	}
 }
 
+func TestMaybeParseApplyPatchShellScriptInvalidPatch(t *testing.T) {
+	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch\nPATCH"
+	argv := []string{"bash", "-lc", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchPatchError || got.PatchError == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchNotApplyPatchFallback(t *testing.T) {
+	got := MaybeParseApplyPatch([]string{"echo", "hello"})
+	if got.Kind != MaybeApplyPatchNotApplyPatch {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
 func TestMaybeParseApplyPatchRejectsEchoThenApplyPatch(t *testing.T) {
 	script := "echo foo && apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
 	argv := []string{"bash", "-lc", script}
@@ -204,5 +228,36 @@ func TestMaybeParseApplyPatchHeredocAlias(t *testing.T) {
 	got := MaybeParseApplyPatch(argv)
 	if got.Kind != MaybeApplyPatchBody || got.Args == nil {
 		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
+func TestIsShellCommandAndShellBaseHelpers(t *testing.T) {
+	if !isShellCommand("/bin/sh", "-c") {
+		t.Fatal("expected sh -c to be recognized")
+	}
+	if isShellCommand("python", "-c") {
+		t.Fatal("unexpected python recognition")
+	}
+	if got := shellBase(`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`); got != "powershell" {
+		t.Fatalf("unexpected shell base: %q", got)
+	}
+}
+
+func TestExtractApplyPatchFromScriptDirectBranches(t *testing.T) {
+	body, workdir, shellErr := extractApplyPatchFromScript("apply_patch")
+	if body != "" || workdir != "" || shellErr == nil || *shellErr != ExtractHeredocFailedToFindHeredocBody {
+		t.Fatalf("unexpected result: body=%q workdir=%q err=%v", body, workdir, shellErr)
+	}
+	body, workdir, shellErr = extractApplyPatchFromScript("echo hello")
+	if body != "" || workdir != "" || shellErr == nil || *shellErr != ExtractHeredocCommandDidNotStartWithApplyPatch {
+		t.Fatalf("unexpected result: body=%q workdir=%q err=%v", body, workdir, shellErr)
+	}
+	body, workdir, shellErr = extractApplyPatchFromScript("apply_patch <<EOF")
+	if body != "" || shellErr == nil || *shellErr != ExtractHeredocFailedToFindHeredocBody {
+		t.Fatalf("unexpected result: body=%q workdir=%q err=%v", body, workdir, shellErr)
+	}
+	body, workdir, shellErr = extractApplyPatchFromScript("apply_patch <<EOF\nbody\nEOF\ntrailing")
+	if body != "" || shellErr == nil || *shellErr != ExtractHeredocCommandDidNotStartWithApplyPatch {
+		t.Fatalf("unexpected result: body=%q workdir=%q err=%v", body, workdir, shellErr)
 	}
 }
