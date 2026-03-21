@@ -107,3 +107,27 @@ func TestMaybeParseApplyPatchVerifiedUpdateIncludesUnifiedDiff(t *testing.T) {
 		t.Fatalf("unexpected unified diff: %q", change.UnifiedDiff)
 	}
 }
+
+func TestMaybeParseApplyPatchVerifiedResolvesRelativePathsInCwd(t *testing.T) {
+	dir := t.TempDir()
+	rel := "source.txt"
+	path := filepath.Join(dir, rel)
+	if err := os.WriteFile(path, []byte("session directory content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	argv := []string{"apply_patch", "*** Begin Patch\n*** Update File: source.txt\n@@\n-session directory content\n+updated session directory content\n*** End Patch"}
+	got := MaybeParseApplyPatchVerified(argv, dir)
+	if got.Kind != MaybeApplyPatchVerifiedBody || got.Action == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	change, ok := got.Action.Changes[path]
+	if !ok {
+		t.Fatalf("missing change for %s", path)
+	}
+	if got.Action.Cwd != dir {
+		t.Fatalf("unexpected cwd: %q", got.Action.Cwd)
+	}
+	if change.Kind != ApplyPatchFileChangeUpdate || change.NewContent != "updated session directory content\n" {
+		t.Fatalf("unexpected change: %+v", change)
+	}
+}
