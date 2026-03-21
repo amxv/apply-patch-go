@@ -89,7 +89,11 @@ func extractApplyPatchFromScript(script string) (body string, workdir string, ok
 		if idx < 0 {
 			return "", "", false
 		}
-		workdir = trimShellWord(strings.TrimSpace(script[3:idx]))
+		rawCd := strings.TrimSpace(script[3:idx])
+		if !isSingleShellWord(rawCd) {
+			return "", "", false
+		}
+		workdir = trimShellWord(rawCd)
 		script = strings.TrimSpace(script[idx+2:])
 	}
 	idx := strings.Index(script, "<<")
@@ -107,12 +111,13 @@ func extractApplyPatchFromScript(script string) (body string, workdir string, ok
 	}
 	marker := trimShellWord(strings.TrimSpace(rest[:lineEnd]))
 	payload := rest[lineEnd+1:]
+	trimmedPayload := strings.TrimRight(payload, "\n")
 	endMarker := "\n" + marker
-	endIdx := strings.LastIndex(payload, endMarker)
-	if endIdx < 0 {
+	if !strings.HasSuffix(trimmedPayload, endMarker) {
 		return "", workdir, false
 	}
-	return strings.TrimRight(payload[:endIdx], "\n"), workdir, true
+	body = strings.TrimSuffix(trimmedPayload, endMarker)
+	return body, workdir, true
 }
 
 func trimShellWord(s string) string {
@@ -123,4 +128,14 @@ func trimShellWord(s string) string {
 		}
 	}
 	return s
+}
+
+func isSingleShellWord(s string) bool {
+	s = strings.TrimSpace(s)
+	if len(s) >= 2 {
+		if (s[0] == '\'' && s[len(s)-1] == '\'') || (s[0] == '"' && s[len(s)-1] == '"') {
+			return true
+		}
+	}
+	return !strings.ContainsAny(s, " \t")
 }

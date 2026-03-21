@@ -74,3 +74,21 @@ func TestMaybeParseApplyPatchRejectsHeredocWithExtraArg(t *testing.T) {
 		t.Fatalf("expected not-apply-patch, got %+v", got)
 	}
 }
+
+func TestMaybeParseApplyPatchRejectsTrailingCommandsAfterHeredoc(t *testing.T) {
+	script := "cd bar && apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH && echo done"
+	argv := []string{"bash", "-lc", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchNotApplyPatch {
+		t.Fatalf("expected not-apply-patch, got %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchRejectsCdWithTwoArgs(t *testing.T) {
+	script := "cd foo bar && apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"bash", "-lc", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchNotApplyPatch {
+		t.Fatalf("expected not-apply-patch, got %+v", got)
+	}
+}
