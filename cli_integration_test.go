@@ -161,3 +161,175 @@ func TestCLIFailingPatchReturnsExitOne(t *testing.T) {
 		t.Fatalf("unexpected failing-patch output: %q", string(out))
 	}
 }
+
+
+func TestCLIMultipleOperationsSummary(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "modify.txt"), []byte("line1\nline2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "delete.txt"), []byte("obsolete\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Add File: nested/new.txt\n+created\n*** Delete File: delete.txt\n*** Update File: modify.txt\n@@\n-line2\n+changed\n*** End Patch"
+	cmd := exec.Command(bin, patch)
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("multiple ops command failed: %v\n%s", err, string(out))
+	}
+	if string(out) != "Success. Updated the following files:\nA nested/new.txt\nM modify.txt\nD delete.txt\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+func TestCLIRejectsEmptyPatchBody(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	cmd := exec.Command(bin, "*** Begin Patch\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("unexpected exit error: %v", err)
+	}
+	if string(out) != "No files were modified.\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+func TestCLIReportsMissingContextMessage(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "modify.txt")
+	if err := os.WriteFile(path, []byte("line1\nline2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "*** Begin Patch\n*** Update File: modify.txt\n@@\n-missing\n+changed\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("unexpected exit error: %v", err)
+	}
+	if string(out) != "Failed to find expected lines in modify.txt:\nmissing\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+func TestCLIRequiresExistingFileForUpdateMessage(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	cmd := exec.Command(bin, "*** Begin Patch\n*** Update File: missing.txt\n@@\n-old\n+new\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("unexpected exit error: %v", err)
+	}
+	if string(out) != "Failed to read file to update missing.txt: No such file or directory (os error 2)\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+
+func TestCLIRejectsInvalidHunkHeaderMessage(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	cmd := exec.Command(bin, "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("unexpected exit error: %v", err)
+	}
+	expected := "Invalid patch hunk on line 2: '*** Frobnicate File: foo' is not a valid hunk header. Valid hunk headers: '*** Add File: {path}', '*** Delete File: {path}', '*** Update File: {path}'\n"
+	if string(out) != expected {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+func TestCLIRejectsEmptyUpdateHunkMessage(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	cmd := exec.Command(bin, "*** Begin Patch\n*** Update File: foo.txt\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("unexpected exit error: %v", err)
+	}
+	if string(out) != "Invalid patch hunk on line 2: Update file hunk for path 'foo.txt' is empty\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+func TestCLIDeleteDirectoryFailsMessage(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	if err := os.Mkdir(filepath.Join(tmp, "dir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "*** Begin Patch\n*** Delete File: dir\n*** End Patch")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected non-zero exit")
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("unexpected exit error: %v", err)
+	}
+	if string(out) != "Failed to delete file dir\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+func TestCLIMovesFileToNewDirectorySummary(t *testing.T) {
+	bin := buildApplyPatchBinary(t)
+	tmp := t.TempDir()
+	oldPath := filepath.Join(tmp, "old", "name.txt")
+	newPath := filepath.Join(tmp, "renamed", "dir", "name.txt")
+	if err := os.MkdirAll(filepath.Dir(oldPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(oldPath, []byte("old content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: old/name.txt\n*** Move to: renamed/dir/name.txt\n@@\n-old content\n+new content\n*** End Patch"
+	cmd := exec.Command(bin, patch)
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("move command failed: %v\n%s", err, string(out))
+	}
+	if string(out) != "Success. Updated the following files:\nM renamed/dir/name.txt\n" {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Fatalf("expected old path removed, stat err=%v", err)
+	}
+	data, err := os.ReadFile(newPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new content\n" {
+		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
