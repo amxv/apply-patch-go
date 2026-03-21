@@ -8,14 +8,16 @@ import (
 type MaybeApplyPatchVerifiedKind string
 
 const (
-	MaybeApplyPatchVerifiedBody          MaybeApplyPatchVerifiedKind = "body"
-	MaybeApplyPatchVerifiedCorrectness   MaybeApplyPatchVerifiedKind = "correctness_error"
-	MaybeApplyPatchVerifiedNotApplyPatch MaybeApplyPatchVerifiedKind = "not_apply_patch"
+	MaybeApplyPatchVerifiedBody            MaybeApplyPatchVerifiedKind = "body"
+	MaybeApplyPatchVerifiedShellParseError MaybeApplyPatchVerifiedKind = "shell_parse_error"
+	MaybeApplyPatchVerifiedCorrectness     MaybeApplyPatchVerifiedKind = "correctness_error"
+	MaybeApplyPatchVerifiedNotApplyPatch   MaybeApplyPatchVerifiedKind = "not_apply_patch"
 )
 
 type MaybeApplyPatchVerified struct {
 	Kind             MaybeApplyPatchVerifiedKind
 	Action           *ApplyPatchAction
+	ShellParseError  *ExtractHeredocError
 	CorrectnessError error
 }
 
@@ -31,6 +33,9 @@ func MaybeParseApplyPatchVerified(argv []string, cwd string) MaybeApplyPatchVeri
 		}
 	}
 	parsed := MaybeParseApplyPatch(argv)
+	if parsed.Kind == MaybeApplyPatchShellParseError {
+		return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedShellParseError, ShellParseError: parsed.ShellParseError}
+	}
 	if parsed.Kind != MaybeApplyPatchBody || parsed.Args == nil {
 		return MaybeApplyPatchVerified{Kind: MaybeApplyPatchVerifiedNotApplyPatch}
 	}

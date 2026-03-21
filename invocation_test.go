@@ -159,3 +159,16 @@ func TestMaybeParseApplyPatchCmdHeredocWithCd(t *testing.T) {
 		t.Fatalf("unexpected workdir: %+v", got.Args.Workdir)
 	}
 }
+
+
+func TestMaybeParseApplyPatchShellParseErrorWhenHeredocBodyMissing(t *testing.T) {
+	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch"
+	argv := []string{"bash", "-lc", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchShellParseError || got.ShellParseError == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	if *got.ShellParseError != ExtractHeredocFailedToFindHeredocBody {
+		t.Fatalf("unexpected shell parse error: %+v", got.ShellParseError)
+	}
+}

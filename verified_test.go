@@ -145,3 +145,16 @@ func TestMaybeParseApplyPatchVerifiedImplicitPatchBashScriptIsError(t *testing.T
 		t.Fatalf("unexpected correctness error: %#v", got.CorrectnessError)
 	}
 }
+
+
+func TestMaybeParseApplyPatchVerifiedPropagatesShellParseError(t *testing.T) {
+	dir := t.TempDir()
+	argv := []string{"bash", "-lc", "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch"}
+	got := MaybeParseApplyPatchVerified(argv, dir)
+	if got.Kind != MaybeApplyPatchVerifiedShellParseError || got.ShellParseError == nil {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+	if *got.ShellParseError != ExtractHeredocFailedToFindHeredocBody {
+		t.Fatalf("unexpected shell parse error: %+v", got.ShellParseError)
+	}
+}

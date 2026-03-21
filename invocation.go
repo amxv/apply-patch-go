@@ -4,16 +4,25 @@ import "strings"
 
 type MaybeApplyPatchKind string
 
+type ExtractHeredocError string
+
 const (
-	MaybeApplyPatchBody          MaybeApplyPatchKind = "body"
-	MaybeApplyPatchPatchError    MaybeApplyPatchKind = "patch_parse_error"
-	MaybeApplyPatchNotApplyPatch MaybeApplyPatchKind = "not_apply_patch"
+	MaybeApplyPatchBody            MaybeApplyPatchKind = "body"
+	MaybeApplyPatchShellParseError MaybeApplyPatchKind = "shell_parse_error"
+	MaybeApplyPatchPatchError      MaybeApplyPatchKind = "patch_parse_error"
+	MaybeApplyPatchNotApplyPatch   MaybeApplyPatchKind = "not_apply_patch"
+)
+
+const (
+	ExtractHeredocCommandDidNotStartWithApplyPatch ExtractHeredocError = "command_did_not_start_with_apply_patch"
+	ExtractHeredocFailedToFindHeredocBody          ExtractHeredocError = "failed_to_find_heredoc_body"
 )
 
 type MaybeApplyPatch struct {
-	Kind       MaybeApplyPatchKind
-	Args       *ApplyPatchArgs
-	PatchError *ParseError
+	Kind            MaybeApplyPatchKind
+	Args            *ApplyPatchArgs
+	PatchError      *ParseError
+	ShellParseError *ExtractHeredocError
 }
 
 func MaybeParseApplyPatch(argv []string) MaybeApplyPatch {
@@ -25,8 +34,8 @@ func MaybeParseApplyPatch(argv []string) MaybeApplyPatch {
 		return MaybeApplyPatch{Kind: MaybeApplyPatchBody, Args: args}
 	}
 	if script, ok := parseShellScript(argv); ok {
-		body, workdir, ok := extractApplyPatchFromScript(script)
-		if ok {
+		body, workdir, shellErr := extractApplyPatchFromScript(script)
+		if shellErr == nil {
 			args, err := ParsePatch(body)
 			if err != nil {
 				return MaybeApplyPatch{Kind: MaybeApplyPatchPatchError, PatchError: err.(*ParseError)}
@@ -37,6 +46,10 @@ func MaybeParseApplyPatch(argv []string) MaybeApplyPatch {
 			}
 			return MaybeApplyPatch{Kind: MaybeApplyPatchBody, Args: args}
 		}
+		if *shellErr == ExtractHeredocCommandDidNotStartWithApplyPatch {
+			return MaybeApplyPatch{Kind: MaybeApplyPatchNotApplyPatch}
+		}
+		return MaybeApplyPatch{Kind: MaybeApplyPatchShellParseError, ShellParseError: shellErr}
 	}
 	return MaybeApplyPatch{Kind: MaybeApplyPatchNotApplyPatch}
 }
@@ -82,42 +95,56 @@ func shellBase(shell string) string {
 	return strings.TrimSuffix(shell, ".exe")
 }
 
-func extractApplyPatchFromScript(script string) (body string, workdir string, ok bool) {
+func extractApplyPatchFromScript(script string) (body string, workdir string, shellErr *ExtractHeredocError) {
 	script = strings.TrimSpace(script)
 	if strings.HasPrefix(script, "cd ") {
 		idx := strings.Index(script, "&&")
 		if idx < 0 {
-			return "", "", false
+			err := ExtractHeredocCommandDidNotStartWithApplyPatch
+			return "", "", &err
 		}
 		rawCd := strings.TrimSpace(script[3:idx])
 		if !isSingleShellWord(rawCd) {
-			return "", "", false
+			err := ExtractHeredocCommandDidNotStartWithApplyPatch
+			return "", "", &err
 		}
 		workdir = trimShellWord(rawCd)
 		script = strings.TrimSpace(script[idx+2:])
 	}
 	idx := strings.Index(script, "<<")
 	if idx < 0 {
-		return "", workdir, false
+		if isApplyPatchCommand(strings.TrimSpace(script)) {
+			err := ExtractHeredocFailedToFindHeredocBody
+			return "", workdir, &err
+		}
+		err := ExtractHeredocCommandDidNotStartWithApplyPatch
+		return "", workdir, &err
 	}
 	cmdPart := strings.TrimSpace(script[:idx])
 	if !(cmdPart == "apply_patch" || cmdPart == "applypatch") {
-		return "", workdir, false
+		err := ExtractHeredocCommandDidNotStartWithApplyPatch
+		return "", workdir, &err
 	}
 	rest := strings.TrimSpace(script[idx+2:])
 	lineEnd := strings.Index(rest, "\n")
 	if lineEnd < 0 {
-		return "", "", false
+		err := ExtractHeredocFailedToFindHeredocBody
+		return "", workdir, &err
 	}
 	marker := trimShellWord(strings.TrimSpace(rest[:lineEnd]))
 	payload := rest[lineEnd+1:]
 	trimmedPayload := strings.TrimRight(payload, "\n")
 	endMarker := "\n" + marker
 	if !strings.HasSuffix(trimmedPayload, endMarker) {
-		return "", workdir, false
+		if strings.Contains(trimmedPayload, endMarker) {
+			err := ExtractHeredocCommandDidNotStartWithApplyPatch
+			return "", workdir, &err
+		}
+		err := ExtractHeredocFailedToFindHeredocBody
+		return "", workdir, &err
 	}
 	body = strings.TrimSuffix(trimmedPayload, endMarker)
-	return body, workdir, true
+	return body, workdir, nil
 }
 
 func trimShellWord(s string) string {
@@ -137,5 +164,5 @@ func isSingleShellWord(s string) bool {
 			return true
 		}
 	}
-	return !strings.ContainsAny(s, " \t")
+	return !strings.ContainsAny(s, " 	")
 }
