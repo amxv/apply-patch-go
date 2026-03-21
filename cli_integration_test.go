@@ -112,7 +112,6 @@ func TestCLIStdinAddAndUpdate(t *testing.T) {
 	}
 }
 
-
 func TestCLIUsageOnEmptyStdin(t *testing.T) {
 	bin := buildApplyPatchBinary(t)
 	cmd := exec.Command(bin)

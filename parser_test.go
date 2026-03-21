@@ -69,7 +69,6 @@ func TestParsePatchUpdateWithoutExplicitFirstContextMarker(t *testing.T) {
 	}
 }
 
-
 func TestParsePatchRejectsBadFirstLine(t *testing.T) {
 	_, err := ParsePatch("bad")
 	if err == nil {
@@ -91,7 +90,6 @@ func TestParsePatchRejectsMissingEndMarker(t *testing.T) {
 		t.Fatalf("unexpected parse error: %#v", err)
 	}
 }
-
 
 func TestParseOneHunkInvalidHeader(t *testing.T) {
 	_, _, err := parseOneHunk([]string{"bad"}, 234)

@@ -129,7 +129,6 @@ func TestMaybeParseApplyPatchRejectsDoubleCd(t *testing.T) {
 	}
 }
 
-
 func TestMaybeParseApplyPatchPowerShellHeredoc(t *testing.T) {
 	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
 	argv := []string{"powershell", "-Command", script}
@@ -160,7 +159,6 @@ func TestMaybeParseApplyPatchCmdHeredocWithCd(t *testing.T) {
 	}
 }
 
-
 func TestMaybeParseApplyPatchShellParseErrorWhenHeredocBodyMissing(t *testing.T) {
 	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch"
 	argv := []string{"bash", "-lc", script}
@@ -172,7 +170,6 @@ func TestMaybeParseApplyPatchShellParseErrorWhenHeredocBodyMissing(t *testing.T)
 		t.Fatalf("unexpected shell parse error: %+v", got.ShellParseError)
 	}
 }
-
 
 func TestMaybeParseApplyPatchRejectsEchoThenApplyPatch(t *testing.T) {
 	script := "echo foo && apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
@@ -191,7 +188,6 @@ func TestMaybeParseApplyPatchRejectsEchoThenCdThenApplyPatch(t *testing.T) {
 		t.Fatalf("expected not-apply-patch, got %+v", got)
 	}
 }
-
 
 func TestMaybeParseApplyPatchHeredocNonLoginShell(t *testing.T) {
 	script := "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"

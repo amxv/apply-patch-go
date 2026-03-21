@@ -29,7 +29,6 @@ func TestSeekSequenceUnicodeNormalized(t *testing.T) {
 	}
 }
 
-
 func TestSeekSequenceRstripMatch(t *testing.T) {
 	lines := []string{"foo   ", "bar\t\t"}
 	pattern := []string{"foo", "bar"}

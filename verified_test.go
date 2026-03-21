@@ -132,7 +132,6 @@ func TestMaybeParseApplyPatchVerifiedResolvesRelativePathsInCwd(t *testing.T) {
 	}
 }
 
-
 func TestMaybeParseApplyPatchVerifiedImplicitPatchBashScriptIsError(t *testing.T) {
 	dir := t.TempDir()
 	argv := []string{"bash", "-lc", "*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch"}
@@ -145,7 +144,6 @@ func TestMaybeParseApplyPatchVerifiedImplicitPatchBashScriptIsError(t *testing.T
 		t.Fatalf("unexpected correctness error: %#v", got.CorrectnessError)
 	}
 }
-
 
 func TestMaybeParseApplyPatchVerifiedPropagatesShellParseError(t *testing.T) {
 	dir := t.TempDir()

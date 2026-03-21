@@ -84,7 +84,6 @@ func TestToolRequiresExistingFileForUpdateMessage(t *testing.T) {
 	}
 }
 
-
 func TestToolAppliesMultipleOperationsSummary(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "modify.txt"), []byte("line1\nline2\n"), 0o644); err != nil {
@@ -172,7 +171,6 @@ func TestToolFailureAfterPartialSuccessLeavesChanges(t *testing.T) {
 		t.Fatalf("unexpected created file: %q", string(data))
 	}
 }
-
 
 func TestToolRejectsEmptyUpdateHunkMessage(t *testing.T) {
 	dir := t.TempDir()

@@ -70,9 +70,9 @@ func invalidHunkError(message string, lineNumber int) *ParseError {
 }
 
 type ApplyPatchError struct {
-	ParseError *ParseError
-	IOError    *IoError
-	Message    string
+	ParseError         *ParseError
+	IOError            *IoError
+	Message            string
 	ImplicitInvocation bool
 }
 
