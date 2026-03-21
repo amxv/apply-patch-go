@@ -72,3 +72,26 @@ func TestApplyHunksWritesSummary(t *testing.T) {
 		t.Fatalf("unexpected stderr: %q", stderr.String())
 	}
 }
+
+
+func TestApplyHunksErrorWritesStderr(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "missing.txt")
+	patch := "*** Begin Patch\n*** Update File: " + path + "\n@@\n-old\n+new\n*** End Patch"
+	parsed, err := ParsePatch(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	err = ApplyHunks(parsed.Hunks, &stdout, &stderr)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if stdout.String() != "" {
+		t.Fatalf("unexpected stdout: %q", stdout.String())
+	}
+	expected := "Failed to read file to update " + path + ": No such file or directory (os error 2)\n"
+	if stderr.String() != expected {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}

@@ -77,3 +77,25 @@ func TestUnifiedDiffWithCustomContext(t *testing.T) {
 		t.Fatalf("unexpected unified diff: %q", diff.UnifiedDiff)
 	}
 }
+
+
+func TestUnifiedDiffWithContextZeroExact(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ctx0.txt")
+	if err := os.WriteFile(path, []byte("one\ntwo\nthree\nfour\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: " + path + "\n@@\n-two\n+TWO\n*** End Patch"
+	parsed, err := ParsePatch(patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diff, err := UnifiedDiffFromChunksWithContext(path, parsed.Hunks[0].Chunks, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "@@ -2 +2 @@\n-two\n+TWO\n"
+	if diff.UnifiedDiff != expected {
+		t.Fatalf("unexpected unified diff:\n%s", diff.UnifiedDiff)
+	}
+}

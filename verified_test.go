@@ -179,3 +179,13 @@ func TestApplyPatchActionChangesAccessorAndNewAddForTest(t *testing.T) {
 		t.Fatalf("unexpected change: %+v", change)
 	}
 }
+
+
+func TestNewAddForTestPanicsOnRelativePath(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic")
+		}
+	}()
+	_ = NewAddForTest("relative.txt", "hello")
+}
