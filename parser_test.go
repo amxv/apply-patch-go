@@ -91,3 +91,81 @@ func TestParsePatchRejectsMissingEndMarker(t *testing.T) {
 		t.Fatalf("unexpected parse error: %#v", err)
 	}
 }
+
+
+func TestParseOneHunkInvalidHeader(t *testing.T) {
+	_, _, err := parseOneHunk([]string{"bad"}, 234)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	perr, ok := err.(*ParseError)
+	if !ok || perr.Kind != ParseErrorInvalidHunk || perr.LineNumber != 234 {
+		t.Fatalf("unexpected parse error: %#v", err)
+	}
+}
+
+func TestParseUpdateFileChunkErrorsAndShapes(t *testing.T) {
+	_, _, err := parseUpdateFileChunk([]string{"bad"}, 123, false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	perr, ok := err.(*ParseError)
+	if !ok || perr.Kind != ParseErrorInvalidHunk || perr.LineNumber != 123 || perr.Message != "Expected update hunk to start with a @@ context marker, got: 'bad'" {
+		t.Fatalf("unexpected parse error: %#v", err)
+	}
+
+	_, _, err = parseUpdateFileChunk([]string{"@@"}, 123, false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	perr, ok = err.(*ParseError)
+	if !ok || perr.Kind != ParseErrorInvalidHunk || perr.LineNumber != 124 || perr.Message != "Update hunk does not contain any lines" {
+		t.Fatalf("unexpected parse error: %#v", err)
+	}
+
+	_, _, err = parseUpdateFileChunk([]string{"@@", "bad"}, 123, false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	perr, ok = err.(*ParseError)
+	if !ok || perr.Kind != ParseErrorInvalidHunk || perr.LineNumber != 124 || perr.Message != "Unexpected line found in update hunk: 'bad'. Every line should start with ' ' (context line), '+' (added line), or '-' (removed line)" {
+		t.Fatalf("unexpected parse error: %#v", err)
+	}
+
+	_, _, err = parseUpdateFileChunk([]string{"@@", "*** End of File"}, 123, false)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	perr, ok = err.(*ParseError)
+	if !ok || perr.Kind != ParseErrorInvalidHunk || perr.LineNumber != 124 || perr.Message != "Update hunk does not contain any lines" {
+		t.Fatalf("unexpected parse error: %#v", err)
+	}
+
+	chunk, consumed, err := parseUpdateFileChunk([]string{"@@ change_context", "", " context", "-remove", "+add", " context2", "*** End Patch"}, 123, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if consumed != 6 {
+		t.Fatalf("unexpected consumed lines: %d", consumed)
+	}
+	if chunk.ChangeContext == nil || *chunk.ChangeContext != "change_context" || chunk.IsEndOfFile {
+		t.Fatalf("unexpected chunk metadata: %+v", chunk)
+	}
+	if len(chunk.OldLines) != 4 || len(chunk.NewLines) != 4 {
+		t.Fatalf("unexpected chunk lines: %+v", chunk)
+	}
+	if chunk.OldLines[0] != "" || chunk.OldLines[1] != "context" || chunk.OldLines[2] != "remove" || chunk.OldLines[3] != "context2" {
+		t.Fatalf("unexpected old lines: %#v", chunk.OldLines)
+	}
+	if chunk.NewLines[0] != "" || chunk.NewLines[1] != "context" || chunk.NewLines[2] != "add" || chunk.NewLines[3] != "context2" {
+		t.Fatalf("unexpected new lines: %#v", chunk.NewLines)
+	}
+
+	chunk, consumed, err = parseUpdateFileChunk([]string{"@@", "+line", "*** End of File"}, 123, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if consumed != 3 || !chunk.IsEndOfFile || len(chunk.NewLines) != 1 || chunk.NewLines[0] != "line" || len(chunk.OldLines) != 0 || chunk.ChangeContext != nil {
+		t.Fatalf("unexpected eof chunk: %+v consumed=%d", chunk, consumed)
+	}
+}
