@@ -172,3 +172,22 @@ func TestMaybeParseApplyPatchShellParseErrorWhenHeredocBodyMissing(t *testing.T)
 		t.Fatalf("unexpected shell parse error: %+v", got.ShellParseError)
 	}
 }
+
+
+func TestMaybeParseApplyPatchRejectsEchoThenApplyPatch(t *testing.T) {
+	script := "echo foo && apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"bash", "-lc", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchNotApplyPatch {
+		t.Fatalf("expected not-apply-patch, got %+v", got)
+	}
+}
+
+func TestMaybeParseApplyPatchRejectsEchoThenCdThenApplyPatch(t *testing.T) {
+	script := "echo foo; cd bar && apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: foo\n+hi\n*** End Patch\nPATCH"
+	argv := []string{"bash", "-lc", script}
+	got := MaybeParseApplyPatch(argv)
+	if got.Kind != MaybeApplyPatchNotApplyPatch {
+		t.Fatalf("expected not-apply-patch, got %+v", got)
+	}
+}
