@@ -167,3 +167,49 @@ func TestParseUpdateFileChunkErrorsAndShapes(t *testing.T) {
 		t.Fatalf("unexpected eof chunk: %+v consumed=%d", chunk, consumed)
 	}
 }
+
+
+func TestParsePatchLenientHeredocVariants(t *testing.T) {
+	patchText := "*** Begin Patch\n*** Update File: file2.py\n import foo\n+bar\n*** End Patch"
+	expectedErr := "The first line of the patch must be '*** Begin Patch'"
+	cases := []struct {
+		name      string
+		patch     string
+		wantError bool
+		wantMsg   string
+	}{
+		{name: "single quoted", patch: "<<'EOF'\n" + patchText + "\nEOF\n", wantError: false},
+		{name: "double quoted", patch: "<<\"EOF\"\n" + patchText + "\nEOF\n", wantError: false},
+		{name: "mismatched quotes", patch: "<<\"EOF'\n" + patchText + "\nEOF\n", wantError: true, wantMsg: expectedErr},
+		{name: "missing closing heredoc", patch: "<<EOF\n*** Begin Patch\n*** Update File: file2.py\nEOF\n", wantError: true, wantMsg: "The last line of the patch must be '*** End Patch'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, strictErr := parsePatchText(tc.patch, false)
+			if strictErr == nil {
+				t.Fatal("expected strict parse error")
+			}
+			strictParseErr, ok := strictErr.(*ParseError)
+			if !ok || strictParseErr.Kind != ParseErrorInvalidPatch || strictParseErr.Message != expectedErr {
+				t.Fatalf("unexpected strict parse error: %#v", strictErr)
+			}
+			got, err := parsePatchText(tc.patch, true)
+			if tc.wantError {
+				if err == nil {
+					t.Fatalf("expected lenient error, got %+v", got)
+				}
+				perr, ok := err.(*ParseError)
+				if !ok || perr.Kind != ParseErrorInvalidPatch || perr.Message != tc.wantMsg {
+					t.Fatalf("unexpected lenient parse error: %#v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected lenient parse error: %v", err)
+			}
+			if got == nil || len(got.Hunks) != 1 || got.Patch != patchText {
+				t.Fatalf("unexpected lenient parse result: %+v", got)
+			}
+		})
+	}
+}
