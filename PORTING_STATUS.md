@@ -167,6 +167,30 @@ Function-by-function coverage output for the current working tree now shows ever
 - `unified_diff.go`
 - CLI wrapper code
 
+## Direct upstream Rust binary parity
+
+The repository now also includes a differential oracle test:
+
+- `TestRustUpstreamBinaryParity` in `rust_parity_test.go`
+
+That test builds:
+
+- the Go `cmd/apply_patch` binary
+- the real upstream Rust `apply_patch` binary from `codex-upstream/codex-rs/apply-patch`
+
+It then compares the two binaries directly on the VPS for:
+
+- exit code parity
+- combined stdout/stderr parity
+- final filesystem-state parity
+
+The current verified scope of that direct comparison is:
+
+- **20 curated CLI/tool parity cases**
+- **all 23 upstream scenario fixtures**
+
+That means the repository is no longer relying only on ported assertions and coverage metrics. It now also has a direct binary-to-binary parity check against the upstream Rust implementation.
+
 ## What changed beyond `00955ff`
 
 The final delta beyond `00955ff` is small and focused.
@@ -207,22 +231,23 @@ The current working tree is now:
 - **100.0%** statement-covered
 - fully covered in `unified_diff.go`
 - still backed by the upstream scenario corpus
+- directly oracle-tested against the upstream Rust binary
 - still aligned to the exact-behavior porting goal rather than a loose approximation
 
 The major known engine blocker from earlier work remains fixed, and the final coverage blocker has now also been eliminated.
 
 ## Exact next steps
 
-The remaining work is no longer about branch coverage.
+The core completion bar for this port is now met on the current VPS working tree:
 
-The immediate next actions are now:
+- full Go suite green
+- **100.0%** statement coverage
+- direct binary parity against the upstream Rust implementation across curated CLI cases and the full upstream scenario corpus
 
-1. commit the current verified working tree locally
-2. continue deeper parity validation against additional upstream Rust tests where direct reuse is practical
-3. keep comparing observable CLI/library behavior against the upstream crate for any remaining edge-case mismatches
+Any further work from here is optional hardening rather than a known missing parity requirement.
 
 ## Bottom line
 
 This is an exact-behavior porting effort, not a loose reimplementation.
 
-The Go port has now reached a verified state where the live VPS working tree is green under `go test ./...` and measures **100.0%** statement coverage, including the final previously uncovered unified-diff error branches.
+The Go port has now reached a verified state where the live VPS working tree is green under `go test ./...`, measures **100.0%** statement coverage, and passes a direct binary-to-binary parity test against the upstream Rust implementation across curated CLI cases and all upstream scenario fixtures.
