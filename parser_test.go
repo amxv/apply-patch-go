@@ -168,7 +168,6 @@ func TestParseUpdateFileChunkErrorsAndShapes(t *testing.T) {
 	}
 }
 
-
 func TestParsePatchLenientHeredocVariants(t *testing.T) {
 	patchText := "*** Begin Patch\n*** Update File: file2.py\n import foo\n+bar\n*** End Patch"
 	expectedErr := "The first line of the patch must be '*** Begin Patch'"

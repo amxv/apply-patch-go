@@ -162,7 +162,6 @@ func TestCLIFailingPatchReturnsExitOne(t *testing.T) {
 	}
 }
 
-
 func TestCLIMultipleOperationsSummary(t *testing.T) {
 	bin := buildApplyPatchBinary(t)
 	tmp := t.TempDir()
@@ -241,7 +240,6 @@ func TestCLIRequiresExistingFileForUpdateMessage(t *testing.T) {
 		t.Fatalf("unexpected output: %q", string(out))
 	}
 }
-
 
 func TestCLIRejectsInvalidHunkHeaderMessage(t *testing.T) {
 	bin := buildApplyPatchBinary(t)
@@ -333,7 +331,6 @@ func TestCLIMovesFileToNewDirectorySummary(t *testing.T) {
 		t.Fatalf("unexpected file content: %q", string(data))
 	}
 }
-
 
 func TestCLIAppliesMultipleChunks(t *testing.T) {
 	bin := buildApplyPatchBinary(t)

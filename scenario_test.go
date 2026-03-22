@@ -14,7 +14,7 @@ type snapshotEntry struct {
 }
 
 func TestUpstreamScenarios(t *testing.T) {
-	scenariosDir := filepath.Join("codex-upstream", "codex-rs", "apply-patch", "tests", "fixtures", "scenarios")
+	scenariosDir := filepath.Join("testdata", "upstream-scenarios")
 	entries, err := os.ReadDir(scenariosDir)
 	if err != nil {
 		t.Fatalf("ReadDir scenarios: %v", err)
