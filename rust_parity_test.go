@@ -1,17 +1,12 @@
 package applypatch
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-type cargoMetadata struct {
-	TargetDirectory string `json:"target_directory"`
-}
 
 type binaryRunResult struct {
 	ExitCode int
@@ -27,36 +22,12 @@ type binaryParityCase struct {
 
 func buildUpstreamRustApplyPatchBinary(t *testing.T) string {
 	t.Helper()
-	if _, err := exec.LookPath("cargo"); err != nil {
-		t.Skipf("cargo not available: %v", err)
+	bin := os.Getenv("APPLY_PATCH_RUST_BIN")
+	if bin == "" {
+		t.Skip("set APPLY_PATCH_RUST_BIN to run Rust parity against an external upstream binary")
 	}
-	root, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	crateDir := filepath.Join(root, "codex-upstream", "codex-rs", "apply-patch")
-
-	metaCmd := exec.Command("cargo", "metadata", "--format-version", "1", "--no-deps")
-	metaCmd.Dir = crateDir
-	metaOut, err := metaCmd.Output()
-	if err != nil {
-		t.Fatalf("cargo metadata failed: %v", err)
-	}
-	var meta cargoMetadata
-	if err := json.Unmarshal(metaOut, &meta); err != nil {
-		t.Fatalf("unmarshal cargo metadata: %v", err)
-	}
-
-	buildCmd := exec.Command("cargo", "build", "--quiet", "--bin", "apply_patch")
-	buildCmd.Dir = crateDir
-	buildOut, err := buildCmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("cargo build failed: %v\n%s", err, string(buildOut))
-	}
-
-	bin := filepath.Join(meta.TargetDirectory, "debug", "apply_patch")
 	if _, err := os.Stat(bin); err != nil {
-		t.Fatalf("upstream apply_patch binary missing at %s: %v", bin, err)
+		t.Fatalf("APPLY_PATCH_RUST_BIN=%s is not usable: %v", bin, err)
 	}
 	return bin
 }
